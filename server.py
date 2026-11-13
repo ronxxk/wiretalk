@@ -17,24 +17,54 @@ class Server:
         self.clients = []
         
     def handle_client(self, conn, addr):
+
         print(f"Connected: {addr}")
 
         try:
+            MAX_MESSAGE_SIZE = 400
+
+            buffer = b""
+
+            disconnect = False
+            
             while True:
                 data = conn.recv(2048)
 
                 if not data:
                     break
+                
 
-                print(f"{addr}: {data.decode()}")
+                    
+                buffer += data
+                
 
-                for client in self.clients.copy():
-                    if client != conn:
-                        try:
-                            client.sendall(data)
-                        except OSError:
-                            pass
+                while b"\n" in buffer:
+                    
+                    message, buffer = buffer.split(b"\n", 1)
+                    
+                    if len(message) > MAX_MESSAGE_SIZE:
+                        
+                        print("Message too large!")
+                        
+                        disconnect = True
+                        
+                        break
+                    
+                    print(f"{addr}: {message.decode('utf-8', errors='replace')}")
 
+                    for client in self.clients.copy():
+                        if client != conn:
+                            try:
+                                client.sendall(message + b"\n")
+                            except OSError:
+                                pass
+                if len(buffer) > MAX_MESSAGE_SIZE:
+                    print(f"{addr}: Incomplete message too large. Disconnecting.")
+                    break
+                
+                if disconnect:
+                    break
+                                
         except OSError as e:
             print(f"Connection error: {e}")
 
